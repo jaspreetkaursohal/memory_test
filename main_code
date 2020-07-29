@@ -1,0 +1,234 @@
+# Memory Version 3
+#THIS IS CREATED USING PYGAME
+import pygame,random, time
+
+
+# User-defined functions
+
+def main():
+           
+   pygame.init()  # initialize all pygame modules (some need initialization)
+   
+   pygame.display.set_mode((500, 400))  # create a pygame display window
+  
+   pygame.display.set_caption('Memory')   # set the title of the display window
+    
+   w_surface = pygame.display.get_surface() # get the display surface
+   
+   game = Game(w_surface)  # create a game object
+   
+   game.play() # start the main game loop by calling the play method on the game object
+   
+   pygame.quit()  # quit pygame and clean up the pygame window
+
+
+
+# User-defined classes
+
+class Game:
+   # An object in this class represents a complete game.
+
+   def __init__(self, surface):
+      # Initialize a Game.
+      # - self is the Game to initialize
+      # - surface is the display window surface object
+
+      # === objects that are part of every game that we will discuss
+      self.surface = surface
+      self.bg_color = pygame.Color('black')
+     
+      self.FPS = 60
+      self.game_Clock = pygame.time.Clock()
+      
+      #indicates that the window is open
+      self.close_clicked = False
+      
+      
+      self.continue_game = True
+     
+      # === game specific objects
+      self.score = 0    #initial score
+      self.verify=[]    #list that verifies
+      self.board = []
+      self.board_size=4
+      self.displayed=0
+      self.create_board()
+      
+      
+   #sets up the grid for the game
+   def create_board(self):
+      
+      Tile.set_surface(self.surface)
+      image_list=[]
+      k=0
+      for index in range(1, 9):
+            images=pygame.image.load('Copy of image'+str(index)+'.bmp')    #assign each other to 'images' through each iteration 
+            image_list.append(images) #adds images to the list
+      image_list=image_list+image_list #creates a double copy of all the images      
+     
+      random.shuffle(image_list)  #shuffle the numbers so the pictures are randomly placed on the board
+      for row_index in range(0,self.board_size):
+         row=[]
+         for col_index in range (0, self.board_size):
+            
+            #getting width and height of the picture
+            width=images.get_width()
+            height=images.get_height()    
+            #determining the position of the image
+            x = width * col_index
+            y = height * row_index
+            tile = Tile(x, y, image_list[k], False)  #providing the values to create the tile
+            k=k+1 
+            row.append(tile)  #adding each tile to the row
+            
+         self.board.append(row) #adding each row to the board
+         
+   
+   def play(self):
+      # Play the game until the player presses the close box.
+      # - self is the Game that should be continued or not.
+
+      while not self.close_clicked:  # until player clicks close box
+         # play frame
+         self.handle_events()
+         self.draw()
+        #checks if the game is continuing 
+         if self.continue_game:
+            self.update()
+            self.decide_continue()
+         self.game_Clock.tick(self.FPS) # run at most with FPS Frames Per Second
+    
+   def update(self):
+
+      # Update the game objects for the next frame.
+      # - self is the Game to update
+      self.score = pygame.time.get_ticks()//1000
+      #checking the number of tiles selected
+      if len(self.verify)==2:
+         #calls the __eq__ method
+         ans=self.verify[0]==self.verify[1]
+         if ans==True:
+            #if 2 tiles are the same, increases the variable that checks how many tiles are dispayed and emties the list
+            self.displayed=self.displayed+2
+            self.verify=[]                     
+                       
+         else:
+            #if the 2 tiles are not the same, keeps the 2 tiles flipped for sometime before flipping them back
+            time.sleep(0.5)
+            self.verify[0].set_hidden()
+            self.verify[1].set_hidden()
+            self.verify=[]            
+     
+      
+   def handle_events(self):
+      # Handle each user event by changing the game state appropriately.
+      # - self is the Game whose events will be handled
+
+      events = pygame.event.get()
+      for event in events:
+         if event.type == pygame.QUIT:
+            self.close_clicked = True
+         if event.type == pygame.MOUSEBUTTONUP and self.continue_game:
+            self.handle_mouse_up(event)
+
+   def draw(self):
+      # Draw all game objects.
+      # - self is the Game to draw
+     
+      self.surface.fill(self.bg_color) # clear the display surface first
+      for every_row in self.board:
+         for every_tile in every_row:
+            every_tile.draw() 
+      self.draw_score()
+      pygame.display.update() # make the updated surface appear on the display
+   
+   #draws score at the top right corner
+   def draw_score(self):
+   #step 1 - color
+      fg_color=pygame.Color('white')
+      #step 2 - create Font object
+      font = pygame.font.SysFont('',80) #if you leave the font area as a normal blank string, it takes the default system font      
+      #step 3 - render the font object
+      click_score= self.score
+      score_text_box = font.render(str(click_score), True, fg_color, self.bg_color)
+      #Step 4 - compute the location
+      score_location = [self.surface.get_width()-score_text_box.get_width(),0]
+      #step 5 - blit
+      self.surface.blit(score_text_box, score_location)
+   
+   def handle_mouse_up(self,event):
+      for every_row in self.board:
+         for every_tile in every_row:
+            if every_tile.choose(event.pos):
+               #adds each time to list called verify
+               self.verify.append(every_tile)
+               
+               
+
+           
+
+
+   def decide_continue(self):
+      # Check and remember if the game should continue
+      # - self is the Game to check
+      #if the number of tiles displayed becomes 16/the size of board**2, the game eds
+      if self.displayed == self.board_size*self.board_size:
+         self.continue_game = False
+      
+     
+
+class Tile:
+   # An object in this class represents a TTT Tile
+   surface = None
+   fg_color = pygame.Color('black')
+   border_width = 8
+   image0 = pygame.image.load("Copy of image0.bmp") #making it accessible for all tiles to use
+   @classmethod
+   def set_surface(cls, surface):
+      cls.surface = surface
+   
+   def __init__(self, x, y, image, exposed):
+      # Initialize a Tile.
+      # - self is the Dot to initialize
+      # - ...
+      self.image = image
+      width = self.image.get_width()
+      height = self.image.get_height()      
+      self.rect = pygame.Rect(x, y, width, height)
+      self.exposed=False
+   
+   def set_hidden(self):
+      #indicating that the tile is not exposed
+      self.exposed=False   
+      
+   def draw(self):
+      pygame.draw.rect(Tile.surface, Tile.fg_color, self.rect, Tile.border_width)
+      if self.exposed== False:
+         #if the tile is not exposed, the blue question mark image is on top
+         Tile.surface.blit(Tile.image0,self.rect)
+      else:
+         #if the tile is exposed, the image under the blue question mark image is displayed
+         Tile.surface.blit(self.image,self.rect)
+           
+      # draw content
+   
+   #checks if a tile has been clicked and if the click is valid
+   def choose(self,position):
+      valid_click = False
+      if self.rect.collidepoint(position):
+         if self.exposed == False:
+            self.exposed = True
+            valid_click = True
+      return valid_click
+   
+   def __eq__(self,other_tile):
+      #checks whether the tile flipped tiles are the same
+      if self.image==other_tile.image:
+         
+         return True
+      else:
+         return False
+      
+   
+
+main()
